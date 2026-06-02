@@ -1,0 +1,281 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout title="Create Account | Sahati Gym">
+	<main class="login-container">
+		<div class="login-box">
+			<div class="logo-container">
+				<img
+					src="/logoWithText.svg"
+					alt="Sahati Gym"
+					class="login-logo"
+				/>
+			</div>
+			<h1>Create Member Account</h1>
+			<form action="/api/auth/register" method="POST" id="register-form">
+				<div class="form-group">
+					<label for="name">Full Name</label>
+					<input type="text" id="name" name="name" required />
+				</div>
+
+				<div class="form-group">
+					<label for="email">Email</label>
+					<input type="email" id="email" name="email" required />
+				</div>
+
+				<div class="form-group">
+					<label for="phone">Phone Number</label>
+					<input type="tel" id="phone" name="phone" required />
+				</div>
+
+				<div class="form-group">
+					<label for="password">Password</label>
+					<input
+						type="password"
+						id="password"
+						name="password"
+						required
+						minlength="6"
+					/>
+				</div>
+
+				<div class="form-group">
+					<label for="confirmPassword">Confirm Password</label>
+					<input
+						type="password"
+						id="confirmPassword"
+						name="confirmPassword"
+						required
+						minlength="6"
+					/>
+				</div>
+
+				<button type="submit" class="btn">Register</button>
+			</form>
+
+			<div class="back-link">
+				<a href="/member/login">← Back to Login</a>
+			</div>
+		</div>
+	</main>
+
+	<!-- Success Modal -->
+	<div id="success-modal" class="modal hidden">
+		<div class="modal-content success-box">
+			<h2>Registration Successful!</h2>
+			<div class="success-message">
+				<p>Your account has been created successfully.</p>
+				<div class="instruction-card">
+					<p>
+						To activate your subscription and access your QR code,
+						please contact gym administration:
+					</p>
+					<p class="contact-num">
+						<a href="tel:+96896535333">+968 96535333</a>
+					</p>
+				</div>
+			</div>
+			<div class="modal-actions">
+				<button id="close-success-modal" class="btn primary"
+					>Go to Login</button
+				>
+			</div>
+		</div>
+	</div>
+</Layout>
+
+<script>
+	function init() {
+		const form = document.getElementById(
+			"register-form"
+		) as HTMLFormElement;
+		const submitBtn = form?.querySelector('button[type="submit"]');
+		const successModal = document.getElementById("success-modal");
+		const closeSuccessBtn = document.getElementById("close-success-modal");
+
+		// Check for error in URL (fallback for direct redirects if any remain)
+		const urlParams = new URLSearchParams(window.location.search);
+		const error = urlParams.get("error");
+		if (error) {
+			window.showToast(error, "error");
+			// Clear the error from URL without refreshing
+			window.history.replaceState(
+				{},
+				document.title,
+				window.location.pathname
+			);
+		}
+
+		form?.addEventListener("submit", async (e) => {
+			e.preventDefault();
+			const password = (
+				document.getElementById("password") as HTMLInputElement
+			).value;
+			const confirmPassword = (
+				document.getElementById("confirmPassword") as HTMLInputElement
+			).value;
+
+			if (password !== confirmPassword) {
+				window.showToast("Passwords do not match", "error");
+				return;
+			}
+
+			submitBtn?.classList.add("loading");
+
+			const formData = new FormData(form);
+			try {
+				const response = await fetch(form.action, {
+					method: "POST",
+					body: formData,
+				});
+
+				if (response.ok) {
+					// Store the redirect URL
+					const redirectUrl = response.redirected
+						? response.url
+						: "/member/dashboard?registered=true";
+
+					// Show success modal
+					successModal?.classList.remove("hidden");
+
+					closeSuccessBtn?.addEventListener(
+						"click",
+						() => {
+							window.location.href = redirectUrl;
+						},
+						{ once: true }
+					);
+				} else {
+					const errorText = await response.text();
+					window.showToast(
+						errorText || "Registration failed",
+						"error"
+					);
+				}
+			} catch (err) {
+				window.showToast(
+					"An error occurred during registration",
+					"error"
+				);
+			} finally {
+				submitBtn?.classList.remove("loading");
+			}
+		});
+	}
+
+	// Support View Transitions
+	document.addEventListener("astro:page-load", init);
+</script>
+
+<style>
+	.login-container {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		min-height: 100vh;
+		padding: 2rem 1rem;
+	}
+
+	.login-box {
+		background-color: rgba(255, 255, 255, 0.05);
+		padding: 2.5rem;
+		border-radius: 12px;
+		width: 100%;
+		max-width: 450px;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+	}
+
+	.logo-container {
+		text-align: center;
+		margin-bottom: 2rem;
+	}
+
+	.login-logo {
+		width: 100%;
+		max-width: 200px;
+		height: auto;
+		object-fit: contain;
+	}
+
+	h1 {
+		margin-top: 0;
+		margin-bottom: 2rem;
+		text-align: center;
+		font-size: 1.8rem;
+	}
+
+	.form-group {
+		margin-bottom: 1.2rem;
+	}
+
+	label {
+		display: block;
+		margin-bottom: 0.4rem;
+		font-weight: 500;
+		font-size: 0.9rem;
+	}
+
+	input {
+		width: 100%;
+		padding: 0.7rem;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		background-color: rgba(0, 0, 0, 0.2);
+		color: white;
+		font-size: 1rem;
+	}
+
+	.btn {
+		width: 100%;
+		padding: 0.8rem;
+		background-color: var(--color-button);
+		color: #124e66;
+		border: none;
+		border-radius: 6px;
+		font-weight: bold;
+		font-size: 1rem;
+		cursor: pointer;
+		margin-top: 1rem;
+	}
+
+	.back-link {
+		margin-top: 1.5rem;
+		text-align: center;
+		font-size: 0.9rem;
+		opacity: 0.8;
+	}
+
+	.back-link a {
+		text-decoration: none;
+	}
+
+	/* Success Modal Styles */
+	.success-box {
+		text-align: center;
+		max-width: 400px;
+	}
+
+	.success-message {
+		margin: 1.5rem 0;
+	}
+
+	.instruction-card {
+		background: rgba(0, 0, 0, 0.2);
+		padding: 1.25rem;
+		border-radius: 8px;
+		margin-top: 1rem;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.contact-num {
+		font-size: 1.25rem;
+		font-weight: 700;
+		margin-top: 0.75rem;
+	}
+
+	.contact-num a {
+		color: var(--color-button);
+		text-decoration: none;
+	}
+</style>

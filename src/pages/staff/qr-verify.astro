@@ -1,0 +1,342 @@
+---
+import StaffLayout from '../../layouts/StaffLayout.astro';
+import QRScanner from '../../components/QRScanner.astro';
+---
+
+<StaffLayout title="QR Verification | Sahati Gym">
+	<section class="verify-container">
+		<h1>QR Access Verification</h1>
+		
+		<div class="tabs">
+			<button class="tab-btn active" data-tab="scanner">Webcam Scanner</button>
+			<button class="tab-btn" data-tab="manual">Manual Entry</button>
+		</div>
+
+		<div id="scanner-tab" class="tab-content active">
+			<QRScanner />
+		</div>
+
+		<div id="manual-tab" class="tab-content">
+			<div class="manual-form">
+				<label for="qr-token">Enter QR Token</label>
+				<input type="text" id="qr-token" placeholder="Paste UUID token here..." />
+				<button id="manual-verify-btn" class="btn">Verify Token</button>
+			</div>
+		</div>
+
+		<div id="result-overlay" class="result-overlay hidden">
+			<div class="result-card">
+				<div id="result-icon" class="result-icon"></div>
+				<h2 id="result-title"></h2>
+				<div id="result-details" class="result-details"></div>
+				<button id="close-result" class="dismiss-btn">Dismiss</button>
+			</div>
+		</div>
+
+		<div id="processing-overlay" class="result-overlay hidden">
+			<div class="processing-card">
+				<div class="spinner"></div>
+				<h2>Processing...</h2>
+				<p>Verifying member access</p>
+			</div>
+		</div>
+	</section>
+</StaffLayout>
+
+<script>
+	function init() {
+		const tabs = document.querySelectorAll('.tab-btn');
+		const tabContents = document.querySelectorAll('.tab-content');
+		const manualVerifyBtn = document.getElementById('manual-verify-btn');
+		const qrInput = document.getElementById('qr-token') as HTMLInputElement;
+		const resultOverlay = document.getElementById('result-overlay');
+		const closeResultBtn = document.getElementById('close-result');
+		const processingOverlay = document.getElementById('processing-overlay');
+
+		tabs.forEach(tab => {
+			tab.addEventListener('click', () => {
+				const target = (tab as HTMLElement).dataset.tab;
+				tabs.forEach(t => t.classList.remove('active'));
+				tab.classList.add('active');
+				tabContents.forEach(c => {
+					c.classList.remove('active');
+					if (c.id === `${target}-tab`) c.classList.add('active');
+				});
+			});
+		});
+
+		let isVerifying = false;
+
+		async function verifyToken(token: string) {
+			if (isVerifying) return;
+			isVerifying = true;
+			processingOverlay?.classList.remove('hidden');
+
+			try {
+				const response = await fetch('/api/staff/verify-qr', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ token })
+				});
+				if (!response.ok) throw new Error(await response.text());
+				const result = await response.json();
+				processingOverlay?.classList.add('hidden');
+				showResult(result);
+			} catch (error: any) {
+				processingOverlay?.classList.add('hidden');
+				window.showToast(error.message || 'Verification failed. Please try again.', 'error');
+			} finally {
+				isVerifying = false;
+			}
+		}
+
+		function showResult(result: any) {
+			const title = document.getElementById('result-title');
+			const details = document.getElementById('result-details');
+			const icon = document.getElementById('result-icon');
+			const card = document.querySelector('.result-card');
+
+			if (result.success) {
+				if (title) title.textContent = 'Access Granted';
+				card?.classList.add('success');
+				card?.classList.remove('error');
+				if (icon) icon.textContent = '✅';
+				if (details) {
+					details.innerHTML = `
+						<p><strong>Name:</strong> ${result.member.name}</p>
+						<p><strong>Plan:</strong> ${result.member.plan}</p>
+						<p><strong>Expiry:</strong> ${result.member.expiry}</p>
+					`;
+				}
+			} else {
+				if (title) title.textContent = 'Access Denied';
+				card?.classList.add('error');
+				card?.classList.remove('success');
+				if (icon) icon.textContent = '❌';
+				if (details) details.innerHTML = `<p>${result.message}</p>`;
+			}
+
+			resultOverlay?.classList.remove('hidden');
+		}
+
+		// Handle QR scan event from QRScanner component
+		const handleScan = (e: any) => {
+			verifyToken(e.detail.token);
+		};
+		window.addEventListener('qr-scanned', handleScan);
+
+		manualVerifyBtn?.addEventListener('click', () => {
+			const token = qrInput?.value.trim();
+			if (token) {
+				manualVerifyBtn.classList.add('loading');
+				verifyToken(token).finally(() => {
+					manualVerifyBtn.classList.remove('loading');
+				});
+			}
+		});
+
+		closeResultBtn?.addEventListener('click', () => {
+			resultOverlay?.classList.add('hidden');
+		});
+
+		// Cleanup function for View Transitions
+		document.addEventListener('astro:after-swap', () => {
+			window.removeEventListener('qr-scanned', handleScan);
+		}, { once: true });
+	}
+
+	document.addEventListener('astro:page-load', init);
+</script>
+
+<style>
+	.verify-container {
+		max-width: 640px;
+		margin: 0 auto;
+		text-align: center;
+	}
+
+	h1 {
+		font-size: 1.75rem;
+		margin-bottom: 0.4rem;
+	}
+
+	.page-sub {
+		color: var(--color-text-muted);
+		font-size: 0.88rem;
+		margin-bottom: 2rem;
+	}
+
+	/* Tab switcher */
+	.tabs {
+		display: inline-flex;
+		background: rgba(0,0,0,0.2);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: 0.28rem;
+		gap: 0.25rem;
+		margin-bottom: 2rem;
+	}
+
+	.tab-btn {
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		padding: 0.5rem 1.25rem;
+		border-radius: 8px;
+		cursor: pointer;
+		font-size: 0.88rem;
+		font-weight: 600;
+		font-family: inherit;
+		transition: background var(--transition), color var(--transition);
+	}
+
+	.tab-btn.active {
+		background: var(--color-button);
+		color: var(--color-button-text);
+	}
+
+	.tab-content { display: none; }
+	.tab-content.active { display: block; }
+
+	/* Manual form */
+	.manual-form {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		padding: 1.75rem 2rem;
+		border-radius: var(--radius-lg);
+		text-align: left;
+		box-shadow: var(--shadow-card);
+	}
+
+	.manual-form input {
+		margin-bottom: 1.25rem;
+	}
+
+	/* Result overlay */
+	.result-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(5, 20, 28, 0.82);
+		backdrop-filter: blur(6px);
+		-webkit-backdrop-filter: blur(6px);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 1000;
+		padding: 1.5rem;
+		animation: fadeIn 0.2s ease;
+	}
+
+	.result-overlay.hidden { display: none; }
+
+	.result-card {
+		background: linear-gradient(145deg, #175f7b, #0f4a63);
+		padding: 2.5rem 2rem;
+		border-radius: var(--radius-lg);
+		max-width: 380px;
+		width: 100%;
+		text-align: center;
+		border: 2px solid transparent;
+		box-shadow: var(--shadow-modal);
+		transition: border-color 0.2s;
+	}
+
+	.result-card.success {
+		border-color: rgba(76,175,80,0.6);
+		box-shadow: 0 0 40px rgba(76,175,80,0.15), var(--shadow-modal);
+	}
+
+	.result-card.error {
+		border-color: rgba(230,57,70,0.6);
+		box-shadow: 0 0 40px rgba(230,57,70,0.15), var(--shadow-modal);
+	}
+
+	.result-icon {
+		font-size: 3.5rem;
+		margin-bottom: 0.75rem;
+		display: block;
+	}
+
+	.result-card h2 {
+		font-size: 1.4rem;
+		margin-bottom: 1rem;
+	}
+
+	.result-card.success h2 { color: #81c784; }
+	.result-card.error   h2 { color: #ef9a9a; }
+
+	/* Processing Card */
+	.processing-card {
+		background: rgba(255, 255, 255, 0.05);
+		backdrop-filter: blur(10px);
+		padding: 3rem 2rem;
+		border-radius: var(--radius-lg);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		max-width: 320px;
+		width: 100%;
+		text-align: center;
+		color: white;
+	}
+
+	.processing-card h2 {
+		margin: 1.5rem 0 0.5rem;
+		font-size: 1.25rem;
+	}
+
+	.processing-card p {
+		color: var(--color-text-muted);
+		font-size: 0.9rem;
+	}
+
+	.spinner {
+		width: 50px;
+		height: 50px;
+		border: 3px solid rgba(255, 255, 255, 0.1);
+		border-radius: 50%;
+		border-top-color: var(--color-button);
+		margin: 0 auto;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+
+	.result-details {
+		margin: 1.25rem 0;
+		text-align: left;
+		background: rgba(0,0,0,0.18);
+		border: 1px solid var(--color-border);
+		padding: 0.9rem 1.1rem;
+		border-radius: var(--radius-md);
+	}
+
+	.result-details p {
+		margin: 0.4rem 0;
+		font-size: 0.9rem;
+		color: var(--color-text-muted);
+	}
+
+	.result-details strong { color: var(--color-text); }
+
+	.dismiss-btn {
+		width: 100%;
+		padding: 0.72rem;
+		background: rgba(255,255,255,0.1);
+		color: #fff;
+		border: 1px solid rgba(255,255,255,0.15);
+		border-radius: var(--radius-sm);
+		font-weight: 600;
+		font-size: 0.9rem;
+		font-family: inherit;
+		cursor: pointer;
+		margin-top: 0.25rem;
+		transition: background var(--transition);
+	}
+	.dismiss-btn:hover { background: rgba(255,255,255,0.16); }
+
+	@keyframes fadeIn {
+		from { opacity: 0; }
+		to   { opacity: 1; }
+	}
+</style>

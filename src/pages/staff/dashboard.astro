@@ -1,0 +1,105 @@
+---
+import StaffLayout from '../../layouts/StaffLayout.astro';
+import { supabase } from '../../lib/supabase';
+
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) return Astro.redirect('/staff/login');
+
+const { data: staff } = await supabase
+	.from('staff')
+	.select('*')
+	.eq('id', user.id)
+	.single();
+
+const staffName = staff?.name || 'Staff Member';
+---
+
+<StaffLayout title="Staff Dashboard | Sahati Gym">
+	<section class="welcome">
+		<h1>Welcome, {staffName}</h1>
+		<p>Manage gym access and member subscriptions.</p>
+	</section>
+
+	<section class="quick-actions">
+		<a href="/staff/qr-verify" class="action-card">
+			<div class="icon">🔍</div>
+			<h3>QR Verification</h3>
+			<p>Scan member QR codes for access control.</p>
+		</a>
+
+		<a href="/staff/member-search" class="action-card">
+			<div class="icon">👥</div>
+			<h3>Member Search</h3>
+			<p>Look up member details and status.</p>
+		</a>
+
+		<a href="/staff/renew-subscription" class="action-card">
+			<div class="icon">💳</div>
+			<h3>Renew Subscription</h3>
+			<p>Update member plans and end dates.</p>
+		</a>
+	</section>
+</StaffLayout>
+
+<style>
+	.welcome {
+		margin-bottom: 2.5rem;
+		padding-bottom: 1.75rem;
+		border-bottom: 1px solid rgba(255,255,255,0.08);
+	}
+
+	h1 {
+		font-size: 2rem;
+		margin-bottom: 0.4rem;
+	}
+
+	.welcome p {
+		color: rgba(255,255,255,0.6);
+		font-size: 0.95rem;
+		margin: 0;
+	}
+
+	.quick-actions {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+		gap: 1.25rem;
+	}
+
+	.action-card {
+		background: rgba(255, 255, 255, 0.055);
+		padding: 2rem 1.75rem;
+		border-radius: 14px;
+		border: 1px solid rgba(255, 255, 255, 0.10);
+		text-align: center;
+		text-decoration: none;
+		transition: transform 0.22s ease, background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+		box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+	}
+
+	.action-card:hover {
+		transform: translateY(-4px);
+		background: rgba(255, 255, 255, 0.09);
+		border-color: rgba(211,217,212,0.45);
+		box-shadow: 0 8px 28px rgba(0,0,0,0.28);
+	}
+
+	.icon {
+		font-size: 2.4rem;
+		margin-bottom: 1.1rem;
+		display: block;
+	}
+
+	h3 {
+		margin: 0 0 0.6rem 0;
+		font-size: 1.15rem;
+		color: var(--color-button);
+		font-weight: 700;
+	}
+
+	p {
+		margin: 0;
+		font-size: 0.85rem;
+		color: rgba(255,255,255,0.58);
+		line-height: 1.5;
+	}
+</style>

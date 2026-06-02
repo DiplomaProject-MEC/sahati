@@ -1,0 +1,37 @@
+# build output
+dist/
+
+# generated types
+.astro/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.vscode/
+
+# environment variables
+.env
+.env.production
+
+# macOS-specific files
+.DS_Store
+
+# jetbrains setting folder
+.idea/
+
+
+#AI# AI-generated code
+graphify-out/
+.github/
+supabase_schema.sql
+GEMINI.md
+.gemini/
+.graphifyignore
+.agents
+# Local Netlify folder
+.netlify

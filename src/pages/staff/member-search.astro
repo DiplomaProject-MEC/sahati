@@ -1,0 +1,197 @@
+---
+import StaffLayout from '../../layouts/StaffLayout.astro';
+---
+
+<StaffLayout title="Member Search | Sahati Gym">
+	<section class="search-container">
+		<h1>Member Search</h1>
+		<p class="page-sub">Look up member records by name, email, phone, or ID. View-only.</p>
+
+		<div class="search-row">
+			<input type="text" id="search-input" placeholder="Search by name, email, phone, or ID…" />
+			<button id="search-btn" class="btn primary">Search</button>
+		</div>
+
+		<div id="results-container" class="results-container">
+			<p class="placeholder-msg">Enter a name, email, phone, or ID to search.</p>
+		</div>
+	</section>
+</StaffLayout>
+
+<script>
+	function init() {
+		const searchInput = document.getElementById('search-input') as HTMLInputElement;
+		const searchBtn = document.getElementById('search-btn');
+		const resultsContainer = document.getElementById('results-container');
+
+		async function performSearch() {
+			const query = searchInput?.value.trim();
+			if (!query) return;
+
+			searchBtn?.classList.add('loading');
+			if (resultsContainer) {
+				resultsContainer.innerHTML = `
+					<div class="table-loader">
+						<div class="spinner"></div>
+						<p>Searching for members...</p>
+					</div>
+				`;
+			}
+
+			try {
+				const response = await fetch(`/api/staff/search-member?q=${encodeURIComponent(query)}`);
+				if (!response.ok) throw new Error(await response.text());
+				const results = await response.json();
+				displayResults(results);
+			} catch (error: any) {
+				window.showToast(error.message || 'Search failed.', 'error');
+				if (resultsContainer) {
+					resultsContainer.innerHTML = '<p class="placeholder-msg">Search failed. Please try again.</p>';
+				}
+			} finally {
+				searchBtn?.classList.remove('loading');
+			}
+		}
+
+		function displayResults(results: any[]) {
+			if (!resultsContainer) return;
+			if (results.length === 0) {
+				resultsContainer.innerHTML = '<p class="no-results">No members found matching your search.</p>';
+				return;
+			}
+
+			resultsContainer.innerHTML = results.map(member => {
+				const sub      = member.subscriptions?.[0];
+				const isActive = sub?.status === 'active' && new Date(sub.end_date) > new Date();
+				const planLabel= sub?.plan ? sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) : 'N/A';
+				const hasQR    = member.qr_tokens && (Array.isArray(member.qr_tokens) ? member.qr_tokens.length > 0 : !!member.qr_tokens.token);
+				const badgeClass = isActive ? 'badge badge-success' : sub ? 'badge badge-danger' : 'badge badge-warning';
+				const badgeLabel = isActive ? 'Active' : sub ? 'Expired' : 'No Sub';
+				const expiry = sub ? new Date(sub.end_date).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—';
+
+				return `
+					<div class="member-card">
+						<div class="member-header">
+							<h3>${member.name}</h3>
+							<span class="${badgeClass}">${badgeLabel}</span>
+						</div>
+						<div class="member-details">
+							<div class="detail-row"><span class="detail-label">Email</span><span class="detail-value">${member.email}</span></div>
+							<div class="detail-row"><span class="detail-label">Phone</span><span class="detail-value">${member.phone || '—'}</span></div>
+							<div class="detail-row"><span class="detail-label">ID</span><span class="detail-value" style="font-family:monospace;font-size:0.78rem;">${member.id}</span></div>
+							<hr class="sub-divider" />
+							<div class="detail-row"><span class="detail-label">Plan</span><span class="detail-value">${planLabel}</span></div>
+							<div class="detail-row"><span class="detail-label">Expiry</span><span class="detail-value">${expiry}</span></div>
+						</div>
+					</div>
+				`;
+			}).join('');
+		}
+
+		searchBtn?.addEventListener('click', performSearch);
+		searchInput?.addEventListener('keypress', (e) => {
+			if (e.key === 'Enter') performSearch();
+		});
+	}
+
+	document.addEventListener('astro:page-load', init);
+</script>
+
+<style>
+	.search-container {
+		max-width: 860px;
+		margin: 0 auto;
+	}
+
+	h1 {
+		font-size: 1.75rem;
+		margin-bottom: 0.3rem;
+	}
+
+	.page-sub {
+		color: var(--color-text-muted);
+		font-size: 0.88rem;
+		margin-bottom: 1.75rem;
+	}
+
+	/* Search row */
+	.search-row {
+		display: flex;
+		gap: 0.75rem;
+		margin-bottom: 2rem;
+	}
+
+	.search-row input { flex: 1; }
+
+	/* Results */
+	.results-container {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+		gap: 1.1rem;
+	}
+
+	.member-card {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		padding: 1.5rem 1.6rem;
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-card);
+		transition: border-color var(--transition);
+	}
+
+	.member-card:hover { border-color: rgba(255,255,255,0.2); }
+
+	.member-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		margin-bottom: 1rem;
+		padding-bottom: 0.9rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	h3 {
+		margin: 0;
+		font-size: 1.05rem;
+		font-weight: 700;
+	}
+
+	.member-details {
+		display: flex;
+		flex-direction: column;
+		gap: 0.45rem;
+	}
+
+	.detail-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.88rem;
+	}
+
+	.detail-label {
+		font-size: 0.75rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-subtle);
+		width: 48px;
+		flex-shrink: 0;
+	}
+
+	.detail-value { color: var(--color-text-muted); }
+
+	.sub-divider {
+		margin: 0.85rem 0 0.6rem;
+		border: none;
+		border-top: 1px dashed rgba(255,255,255,0.08);
+	}
+
+	.placeholder-msg {
+		grid-column: 1 / -1;
+		text-align: center;
+		padding: 3.5rem 2rem;
+		color: var(--color-text-subtle);
+		font-size: 0.92rem;
+	}
+</style>

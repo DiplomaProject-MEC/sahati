@@ -1,0 +1,286 @@
+---
+import MemberLayout from '../../layouts/MemberLayout.astro';
+import { supabase } from '../../lib/supabase';
+
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) return Astro.redirect('/member/login');
+
+const { data: profile } = await supabase
+	.from('users')
+	.select('*')
+	.eq('id', user.id)
+	.single();
+
+const { data: subscription } = await supabase
+	.from('subscriptions')
+	.select('*')
+	.eq('user_id', user.id)
+	.single();
+
+const firstName = profile?.name.split(' ')[0] || 'Member';
+
+const isSubscriptionActive = subscription?.status === 'active' && new Date(subscription.end_date) > new Date();
+
+const daysRemaining = subscription ? Math.ceil((new Date(subscription.end_date).getTime() - new Date().getTime()) / (1000 * 3600 * 24)) : 0;
+const formatDate = (date: string) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+---
+
+<MemberLayout title="Dashboard | Sahati Gym">
+	<section class="welcome">
+		<div class="welcome-text">
+			<h1>Welcome back, {firstName} 👋</h1>
+			<p>Here's your membership overview.</p>
+		</div>
+	</section>
+
+	<section class="dashboard-grid">
+		<div class="card subscription-card">
+			<div class="card-header">
+				<h2>Subscription</h2>
+				{subscription ? (
+					<span class={`status-pill ${isSubscriptionActive ? 'active' : 'expired'}`}>
+						{isSubscriptionActive ? '● Active' : '● Expired'}
+					</span>
+				) : null}
+			</div>
+			{subscription ? (
+				<div class="status-info">
+					<div class="plan-row">
+						<span class="plan-label">{subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)} Plan</span>
+					</div>
+					<div class="info-row">
+						<span>Start</span>
+						<strong>{formatDate(subscription.start_date)}</strong>
+					</div>
+					<div class="info-row">
+						<span>Expires</span>
+						<strong>{formatDate(subscription.end_date)}</strong>
+					</div>
+					{isSubscriptionActive && daysRemaining >= 0 && (
+						<div class="days-remaining">
+							<div class="days-label">
+								<span>Days remaining</span>
+								<strong>{daysRemaining} days</strong>
+							</div>
+						</div>
+					)}
+				</div>
+			) : (
+				<div class="no-sub">
+					<span class="no-sub-icon">📋</span>
+					<p>No active subscription found.<br/>Your subscription will be added by staff or admin according to your subscription plan.</p>
+				</div>
+			)}
+		</div>
+
+		<div class="card quick-actions">
+			<h2>Quick Access</h2>
+			<div class="action-links">
+				<a href="/member/qr-code" class="action-link">
+					<span class="action-icon">📲</span>
+					<div>
+						<strong>My QR Code</strong>
+						<small>Show at entrance</small>
+					</div>
+					<span class="arrow">→</span>
+				</a>
+				<a href="/member/subscription-plans" class="action-link">
+					<span class="action-icon">💎</span>
+					<div>
+						<strong>Subscription Plans</strong>
+						<small>View available tiers</small>
+					</div>
+					<span class="arrow">→</span>
+				</a>
+				<a href="/member/profile" class="action-link">
+					<span class="action-icon">👤</span>
+					<div>
+						<strong>My Profile</strong>
+						<small>Change password</small>
+					</div>
+					<span class="arrow">→</span>
+				</a>
+			</div>
+		</div>
+	</section>
+</MemberLayout>
+
+<script>
+	function init() {
+		// Check for registration success
+		const urlParams = new URLSearchParams(window.location.search);
+		if (urlParams.get('registered') === 'true') {
+			window.showToast('Registration successful! Your subscription will be added by staff or admin according to your subscription plan.', 'success');
+			// Clear param
+			window.history.replaceState({}, document.title, window.location.pathname);
+		}
+	}
+
+	document.addEventListener('astro:page-load', init);
+</script>
+
+<style>
+	.welcome {
+		margin-bottom: 2rem;
+		padding-bottom: 1.5rem;
+		border-bottom: 1px solid rgba(255,255,255,0.08);
+	}
+
+	.welcome-text h1 {
+		font-size: 1.9rem;
+		margin-bottom: 0.3rem;
+	}
+
+	.welcome-text p {
+		color: var(--color-text-muted);
+		margin: 0;
+	}
+
+	.dashboard-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 1.25rem;
+		align-items: start;
+	}
+
+	/* Subscription card */
+	.card-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 1.4rem;
+		padding-bottom: 0.9rem;
+		border-bottom: 1px solid rgba(255,255,255,0.08);
+	}
+
+	.card-header h2 { margin: 0; font-size: 1.1rem; }
+
+	.status-pill {
+		font-size: 0.75rem;
+		font-weight: 700;
+		padding: 0.28rem 0.7rem;
+		border-radius: 20px;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+
+	.status-pill.active {
+		background: rgba(76,175,80,0.18);
+		color: #81c784;
+		border: 1px solid rgba(76,175,80,0.28);
+	}
+
+	.status-pill.expired {
+		background: rgba(230,57,70,0.18);
+		color: #ef9a9a;
+		border: 1px solid rgba(230,57,70,0.28);
+	}
+
+	.status-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.8rem;
+	}
+
+	.plan-row {
+		margin-bottom: 0.4rem;
+	}
+
+	.plan-label {
+		font-size: 1.35rem;
+		font-weight: 700;
+		color: var(--color-button);
+	}
+
+	.info-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		font-size: 0.9rem;
+	}
+
+	.info-row span { color: var(--color-text-muted); }
+	.info-row strong { font-weight: 600; }
+
+	.days-remaining {
+		margin-top: 0.5rem;
+		padding-top: 0.9rem;
+		border-top: 1px dashed rgba(255,255,255,0.1);
+	}
+
+	.days-label {
+		display: flex;
+		justify-content: space-between;
+		font-size: 0.88rem;
+		margin-bottom: 0.5rem;
+		color: var(--color-text-muted);
+	}
+
+	.days-label strong {
+		color: #d3d9d4;
+		font-weight: 700;
+	}
+
+	.no-sub {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+		padding: 1.5rem 0.5rem;
+		gap: 0.75rem;
+	}
+
+	.no-sub-icon { font-size: 2.5rem; }
+	.no-sub p { color: var(--color-text-muted); margin: 0; line-height: 1.6; }
+
+	/* Quick actions */
+	.quick-actions h2 {
+		font-size: 1.1rem;
+		margin-bottom: 1.1rem;
+		padding-bottom: 0.9rem;
+		border-bottom: 1px solid rgba(255,255,255,0.08);
+	}
+
+	.action-links {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.action-link {
+		display: flex;
+		align-items: center;
+		gap: 0.9rem;
+		padding: 0.85rem 1rem;
+		border-radius: var(--radius-md);
+		background: rgba(255,255,255,0.04);
+		border: 1px solid rgba(255,255,255,0.07);
+		text-decoration: none;
+		color: inherit;
+		transition: background var(--transition), border-color var(--transition), transform var(--transition);
+	}
+
+	.action-link:hover {
+		background: rgba(255,255,255,0.08);
+		border-color: rgba(211,217,212,0.3);
+		transform: translateX(3px);
+	}
+
+	.action-icon { font-size: 1.4rem; flex-shrink: 0; }
+
+	.action-link div {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+		flex: 1;
+	}
+
+	.action-link strong { font-size: 0.92rem; font-weight: 600; }
+	.action-link small  { font-size: 0.77rem; color: var(--color-text-muted); }
+
+	.arrow {
+		color: var(--color-text-subtle);
+		font-size: 1rem;
+		margin-left: auto;
+	}
+</style>
