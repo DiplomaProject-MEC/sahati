@@ -16,7 +16,7 @@ A web application for a gym with three distinct user roles (Member, Gym Staff, A
 4. Run the query to create tables and set up RLS policies.
 5. In the **Authentication** settings:
    - Ensure "Email/Password" provider is enabled.
-   - (Optional but recommended) Disable "Confirm Email" if you want instant registration for testing.
+   
 
 ### 3. Environment Variables
 Create a `.env` file in the root directory with the following variables:
